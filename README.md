@@ -11,7 +11,7 @@ Make sure you have Rust installed on your system. You can install Rust from [rus
 
 ```bash
 # Clone the repository
-git clone [https://github.com/OxSourabh/Rust-Compresser/]
+git clone https://github.com/OxSourabh/Rust-Compresser/
 cd [Rust-Compresser]
 
 # Build the project
