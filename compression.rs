@@ -1,67 +1,92 @@
 use std::fs::File;
 use std::io::{self, Read, Write};
 
-fn compress(data: &str) -> String {
-    let mut compressed = String::new();
-    let mut chars = data.chars().peekable();
+/// Compresses a string using Run-Length Encoding (RLE).
+/// For example: "aaabbbcc" becomes "a3b3c2".
+fn compress(input: &str) -> String {
+    let mut compressed_result = String::new();
+    let mut characters = input.chars().peekable(); // Use peekable to look ahead without consuming
 
-    while let Some(current_char) = chars.next() {
-        let mut count = 1;
+    while let Some(current_character) = characters.next() {
+        let mut repeat_count = 1;
 
-        while let Some(&next_char) = chars.peek() {
-            if next_char == current_char {
-                count += 1;
-                chars.next();
-            } else {
-                break;
-            }
+        // Count how many times the current character repeats consecutively
+        while matches!(characters.peek(), Some(&next_char) if next_char == current_character) {
+            repeat_count += 1;
+            characters.next(); // Move to the next character
         }
 
-        compressed.push(current_char);
-        compressed.push_str(&count.to_string());
+        // Append the character and its count to the result
+        compressed_result.push(current_character);
+        compressed_result.push_str(&repeat_count.to_string());
     }
 
-    compressed
+    compressed_result
 }
 
-fn decompress(data: &str) -> String {
-    let mut decompressed = String::new();
-    let mut chars = data.chars();
+/// Decompresses a string encoded with Run-Length Encoding (RLE).
+/// For example: "a3b3c2" becomes "aaabbbcc".
+fn decompress(encoded_data: &str) -> Result<String, &'static str> {
+    let mut decompressed_result = String::new();
+    let mut characters = encoded_data.chars();
 
-    while let Some(char) = chars.next() {
-        if let Some(count_char) = chars.next() {
-            let count = count_char.to_digit(10).unwrap_or(1);
-            for _ in 0..count {
-                decompressed.push(char);
+    while let Some(character) = characters.next() {
+        let mut count_digits = String::new();
+
+        // Collect all consecutive digits to form the count
+        while let Some(next_char) = characters.peek() {
+            if next_char.is_ascii_digit() {
+                count_digits.push(characters.next().unwrap()); // Add the digit to the count
+            } else {
+                break; // Stop collecting digits when a non-digit is encountered
             }
         }
+
+        // Parse the collected digits into a number
+        let repeat_count = count_digits.parse::<usize>().map_err(|_| "Invalid count")?;
+
+        // Repeat the character `repeat_count` times and add it to the result
+        decompressed_result.extend(std::iter::repeat(character).take(repeat_count));
     }
 
-    decompressed
+    Ok(decompressed_result)
 }
 
 fn main() -> io::Result<()> {
-    // Read the input file
-    let mut file = File::open("input.txt")?;
-    let mut input_data = String::new();
-    file.read_to_string(&mut input_data)?;
+    println!("=== Compression and Decompression Program ===");
 
-    // Compress the data
-    let compressed_data = compress(&input_data);
+    // Step 1: Read the input file
+    let mut input_file_content = String::new();
+    match File::open("input.txt") {
+        Ok(mut file) => file.read_to_string(&mut input_file_content)?,
+        Err(_) => return Err(io::Error::new(io::ErrorKind::NotFound, "Input file not found")),
+    };
+
+    println!("Original Data: {}", input_file_content);
+
+    // Step 2: Compress the data
+    let compressed_data = compress(&input_file_content);
     println!("Compressed Data: {}", compressed_data);
 
-    // Write the compressed data to a file
+    // Step 3: Save the compressed data to a file
     let mut compressed_file = File::create("compressed.txt")?;
     compressed_file.write_all(compressed_data.as_bytes())?;
+    println!("Compressed data saved to 'compressed.txt'.");
 
-    // Read the compressed file
-    let mut compressed_data_read = String::new();
-    let mut compressed_file_read = File::open("compressed.txt")?;
-    compressed_file_read.read_to_string(&mut compressed_data_read)?;
+    // Step 4: Read the compressed file
+    let mut compressed_file_content = String::new();
+    File::open("compressed.txt")?.read_to_string(&mut compressed_file_content)?;
 
-    // Decompress the data
-    let decompressed_data = decompress(&compressed_data_read);
-    println!("Decompressed Data: {}", decompressed_data);
+    // Step 5: Decompress the data
+    match decompress(&compressed_file_content) {
+        Ok(decompressed_data) => {
+            println!("Decompressed Data: {}", decompressed_data);
+        }
+        Err(error_message) => {
+            eprintln!("Error during decompression: {}", error_message);
+        }
+    }
 
+    println!("=== Program Finished ===");
     Ok(())
 }
